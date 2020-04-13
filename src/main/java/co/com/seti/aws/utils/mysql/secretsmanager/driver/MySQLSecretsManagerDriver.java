@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mysql.cj.jdbc.NonRegisteringDriver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -54,16 +55,17 @@ public class MySQLSecretsManagerDriver extends NonRegisteringDriver implements j
         GetSecretValueRequest request = GetSecretValueRequest.builder().secretId(secretId).build();
         GetSecretValueResponse response = client.getSecretValue(request);
         String secretText = response.secretString();
-        Map<String, String> secrets = new HashMap<>();
-        if(secretText != null && !secretText.isEmpty()){
-            try {
-                secrets = objectMapper.readValue(secretText, new TypeReference<Map<String,String>>(){});
-            } catch (JsonProcessingException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
-        } else {
-            //TODO: Handle secret binary
+        if(secretText == null || secretText.isEmpty()){
+            //Handle secret binary
+            byte[] decodedBytes = Base64.getDecoder().decode(response.secretBinary().asByteArray());
+            secretText = new String(decodedBytes);
         }
+        Map<String, String> secrets = new HashMap<>();
+        try {
+            secrets = objectMapper.readValue(secretText, new TypeReference<Map<String,String>>(){});
+        } catch (JsonProcessingException ex) {
+            LOGGER.log(Level.SEVERE, null, ex);
+        }        
         client.close();
         return secrets;
     }
