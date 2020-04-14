@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mysql.cj.jdbc.NonRegisteringDriver;
+import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Base64;
@@ -30,8 +31,8 @@ public class MySQLSecretsManagerDriver extends NonRegisteringDriver implements j
     private static final Logger LOGGER = Logger.getLogger(MySQLSecretsManagerDriver.class.getName());
     private final ObjectMapper objectMapper = new ObjectMapper();
     
-    private static final String VARIABLE_START_DELIMITER = "${";
-    private static final String VARIABLE_END_DELIMITER = "}";    
+    private static final String VARIABLE_PREFIX = "${";
+    private static final String VARIABLE_SUFFIX = "}";    
 
     public MySQLSecretsManagerDriver() throws SQLException {}
 
@@ -70,15 +71,22 @@ public class MySQLSecretsManagerDriver extends NonRegisteringDriver implements j
         return secrets;
     }
 
+    /**
+     *
+     * @param url, connection string
+     * @param info, connection credentials
+     * @return mysql connection
+     * @throws SQLException 
+     */
     @Override
-    public java.sql.Connection connect(String url, Properties info) throws SQLException {
+    public Connection connect(String url, Properties info) throws SQLException {
         Map<String, String> secrets = getSecrets(info.get("user").toString());
         Map<String, String> replaceValues = new HashMap<>();
         //Secrets data: username, password, engine, host, port, dbname, dbInstanceIdentifier
         replaceValues.put("db_host", secrets.get("host"));
         replaceValues.put("db_port", secrets.get("port"));
         replaceValues.put("db_name", secrets.get("dbname"));
-        String newUrl = StringSubstitutor.replace(url, replaceValues, VARIABLE_START_DELIMITER, VARIABLE_END_DELIMITER);
+        String newUrl = StringSubstitutor.replace(url, replaceValues, VARIABLE_PREFIX, VARIABLE_SUFFIX);
         Properties newInfo = new Properties();
         newInfo.put("user", secrets.get("username"));
         newInfo.put("password", secrets.get("password"));
